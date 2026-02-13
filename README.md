@@ -73,17 +73,30 @@ spy_trend/
 
 ```bash
 # Install dependencies
-pip install pandas numpy matplotlib yfinance
+pip install -r requirements.txt
 
-# Run the four-scenarios comparison
+# Launch the interactive web UI
+streamlit run app.py
+
+# Run the four-scenarios comparison (CLI)
 python run_four_scenarios.py
 
-# Run the drawdown-capped selection
-python run_ddcap20.py
+# Run the drawdown-capped selection (CLI)
+python run_ddcap20.py               # default -20% cap
+python run_ddcap20.py --dd-cap -15  # custom cap
 
 # Run the original A-E research
 python main.py
 ```
+
+### Web UI (`app.py`)
+
+The Streamlit app provides two modes:
+
+1. **DD-Capped Optimization** — full walk-forward optimization with drawdown constraints, interactive Plotly charts, ranking table, fold-by-fold details.
+2. **Single Strategy Backtest** — run any of the 9 strategies (A-I) with custom parameters and see equity/drawdown curves instantly.
+
+Configuration is in the sidebar: DD cap, risk_scale grid, walk-forward settings, cost model.
 
 Reports and charts are saved to `./output/`.
 
