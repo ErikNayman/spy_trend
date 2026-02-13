@@ -22,7 +22,10 @@ The risk_scale lever:
 
 Usage:
     python run_ddcap20.py
+    python run_ddcap20.py --dd-cap -15
+    python run_ddcap20.py --dd-cap -10 --risk-scales 0.5 0.6 0.7 0.8 0.9 1.0
 """
+import argparse
 import os
 import sys
 import time
@@ -43,6 +46,17 @@ from strategies import STRATEGIES
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+
+def parse_args():
+    p = argparse.ArgumentParser(description="DD-Capped Strategy Research")
+    p.add_argument("--dd-cap", type=float, default=-20,
+                   help="Max drawdown cap in %% (e.g., -15 means -15%%). Default: -20")
+    p.add_argument("--risk-scales", type=float, nargs="+",
+                   default=[0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+                   help="risk_scale values to include in grid. Default: 0.5..1.0")
+    return p.parse_args()
+
+
 # ── Configuration ──────────────────────────────────────────────────
 BACKTEST_CONFIG = BacktestConfig(
     commission_bps=1.0,
@@ -54,13 +68,13 @@ VAL_YEARS = 2
 STEP_YEARS = 2
 TEST_START = "2022-01-01"
 
-# DD-cap constraints
+# Defaults (overridden by CLI args in main())
 DD_CAP = -0.20               # MaxDD must be >= this (i.e., no worse than -20%)
 FOLD_PASS_RATE = 0.80        # at least 80% of folds must satisfy DD cap
 MIN_AVG_EXPOSURE = 60.0      # avg OOS exposure >= 60%
 
 # risk_scale values to try
-RISK_SCALES = [0.7, 0.8, 0.9, 1.0]
+RISK_SCALES = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 STRATEGY_NAMES = [
     "F_hysteresis_regime",
@@ -328,6 +342,16 @@ def describe_strategy(name):
 # MAIN
 # ══════════════════════════════════════════════════════════════════
 def main():
+    args = parse_args()
+
+    # Apply CLI args to globals
+    global DD_CAP, RISK_SCALES
+    DD_CAP = args.dd_cap / 100.0   # e.g., -15 → -0.15
+    RISK_SCALES = args.risk_scales
+
+    # Output prefix based on cap (e.g., "ddcap15" for -15%)
+    cap_label = f"ddcap{abs(int(args.dd_cap))}"
+
     t0 = time.time()
     report = []
 
@@ -335,7 +359,7 @@ def main():
         report.append(line)
 
     print("=" * 60)
-    print("  DD-CAPPED STRATEGY RESEARCH (MaxDD >= -20%)")
+    print(f"  DD-CAPPED STRATEGY RESEARCH (MaxDD >= {DD_CAP:.0%})")
     print("=" * 60)
     print()
 
@@ -708,12 +732,12 @@ def main():
     full_dd = {n: r.drawdown for n, r in full_results.items() if n != "Buy_Hold"}
 
     plot_equity(full_eq, bh_full.equity,
-                "ddcap20_equity_full.png",
-                "DD-Capped Strategies: Equity (Full Period)",
+                f"{cap_label}_equity_full.png",
+                f"DD-Capped ({DD_CAP:.0%}) Strategies: Equity (Full Period)",
                 test_start=TEST_START)
     plot_drawdown(full_dd, bh_full.drawdown,
-                  "ddcap20_drawdown_full.png",
-                  "DD-Capped Strategies: Drawdown (Full Period)",
+                  f"{cap_label}_drawdown_full.png",
+                  f"DD-Capped ({DD_CAP:.0%}) Strategies: Drawdown (Full Period)",
                   test_start=TEST_START)
 
     # --- Holdout ---
@@ -721,11 +745,11 @@ def main():
     ho_dd = {n: r.drawdown for n, r in holdout_results.items() if n != "Buy_Hold"}
 
     plot_equity(ho_eq, bh_test.equity,
-                "ddcap20_equity_holdout.png",
-                f"DD-Capped Strategies: Equity (Holdout {TEST_START}+)")
+                f"{cap_label}_equity_holdout.png",
+                f"DD-Capped ({DD_CAP:.0%}) Strategies: Equity (Holdout {TEST_START}+)")
     plot_drawdown(ho_dd, bh_test.drawdown,
-                  "ddcap20_drawdown_holdout.png",
-                  f"DD-Capped Strategies: Drawdown (Holdout {TEST_START}+)")
+                  f"{cap_label}_drawdown_holdout.png",
+                  f"DD-Capped ({DD_CAP:.0%}) Strategies: Drawdown (Holdout {TEST_START}+)")
 
     # --- Stitched WF OOS ---
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), sharex=True,
@@ -752,7 +776,7 @@ def main():
     ax2.grid(True, alpha=0.3)
     ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0%}"))
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, "ddcap20_equity_wf_oos_stitched.png"), dpi=150)
+    plt.savefig(os.path.join(OUTPUT_DIR, f"{cap_label}_equity_wf_oos_stitched.png"), dpi=150)
     plt.close()
 
     # Separate stitched drawdown chart
@@ -770,17 +794,17 @@ def main():
     ax.grid(True, alpha=0.3)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0%}"))
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, "ddcap20_drawdown_wf_oos_stitched.png"), dpi=150)
+    plt.savefig(os.path.join(OUTPUT_DIR, f"{cap_label}_drawdown_wf_oos_stitched.png"), dpi=150)
     plt.close()
 
     md("## Charts")
     md()
-    md("- `ddcap20_equity_full.png` — equity curves, full period")
-    md("- `ddcap20_drawdown_full.png` — drawdowns, full period (with -20% line)")
-    md("- `ddcap20_equity_holdout.png` — equity curves, holdout")
-    md("- `ddcap20_drawdown_holdout.png` — drawdowns, holdout")
-    md("- `ddcap20_equity_wf_oos_stitched.png` — stitched WF OOS equity + DD")
-    md("- `ddcap20_drawdown_wf_oos_stitched.png` — stitched WF OOS drawdown")
+    md(f"- `{cap_label}_equity_full.png` — equity curves, full period")
+    md(f"- `{cap_label}_drawdown_full.png` — drawdowns, full period (with {DD_CAP:.0%} line)")
+    md(f"- `{cap_label}_equity_holdout.png` — equity curves, holdout")
+    md(f"- `{cap_label}_drawdown_holdout.png` — drawdowns, holdout")
+    md(f"- `{cap_label}_equity_wf_oos_stitched.png` — stitched WF OOS equity + DD")
+    md(f"- `{cap_label}_drawdown_wf_oos_stitched.png` — stitched WF OOS drawdown")
     md()
 
     # ── Save report ──────────────────────────────────────────────
@@ -788,7 +812,7 @@ def main():
     md("---")
     md(f"*Generated in {elapsed:.1f}s*")
 
-    _save_report(report)
+    _save_report(report, cap_label)
     print(f"\n[7/7] Done. Total runtime: {elapsed:.1f}s")
     print(f"\n{'='*60}")
     print(f"  WINNER: {winner_name}")
@@ -803,8 +827,8 @@ def main():
     print(f"{'='*60}")
 
 
-def _save_report(report):
-    path = os.path.join(OUTPUT_DIR, "ddcap20_report.md")
+def _save_report(report, cap_label="ddcap20"):
+    path = os.path.join(OUTPUT_DIR, f"{cap_label}_report.md")
     with open(path, "w") as f:
         f.write("\n".join(report))
     print(f"\nReport saved to {path}")
