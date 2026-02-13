@@ -57,12 +57,40 @@ Data range: 1993-01-29 to 2026-02-11 (8316 trading days, 33.0 years)
   Avg OOS Calmar: 0.78
   Avg IS  Calmar: 0.42
 
+--- F_hysteresis_regime: Regime filter with hysteresis bands (anti-whipsaw) ---
+  Parameter grid size: 54
+  Consensus params: {'regime_len': 200, 'upper_pct': 0.0, 'lower_pct': 2.0, 'slope_window': 20}
+  Avg OOS Calmar: 0.55
+  Avg IS  Calmar: 0.56
+
+--- G_sizing_regime: Vol-scaled regime sizing (fractional 0..1) ---
+  Parameter grid size: 54
+  Consensus params: {'regime_len': 200, 'slope_window': 20, 'vol_window': 60, 'target_vol': 0.1}
+  Avg OOS Calmar: 0.42
+  Avg IS  Calmar: 0.44
+
+--- H_atr_dip_addon: Regime + ATR dip add-on (fractional 0..1) ---
+  Parameter grid size: 96
+  Consensus params: {'regime_len': 200, 'dip_ema': 20, 'atr_len': 14, 'dip_atr_mult': 1.0, 'base_weight': 0.5, 'addon_weight': 0.5}
+  Avg OOS Calmar: 0.42
+  Avg IS  Calmar: 0.37
+
+--- I_breakout_or_dip: Dual-mode: breakout OR dip entry + ATR stop ---
+  Parameter grid size: 96
+  Consensus params: {'regime_len': 150, 'breakout_len': 20, 'dip_ema': 50, 'dip_pct': 1.0, 'atr_len': 20, 'atr_mult': 3.0}
+  Avg OOS Calmar: 0.54
+  Avg IS  Calmar: 0.40
+
 ## 4. Strategy Ranking (by avg OOS Calmar)
   1. E_composite: OOS Calmar=0.78, CAGR=7.13%, MaxDD=-10.83%
   2. C_buy_dip_uptrend: OOS Calmar=0.62, CAGR=6.07%, MaxDD=-13.05%
-  3. A_ema_crossover: OOS Calmar=0.54, CAGR=5.08%, MaxDD=-14.54%
-  4. B_regime_filter: OOS Calmar=0.47, CAGR=4.87%, MaxDD=-12.54%
-  5. D_ema_atr_stop: OOS Calmar=0.45, CAGR=3.54%, MaxDD=-16.19%
+  3. F_hysteresis_regime: OOS Calmar=0.55, CAGR=5.04%, MaxDD=-13.29%
+  4. I_breakout_or_dip: OOS Calmar=0.54, CAGR=5.69%, MaxDD=-13.10%
+  5. A_ema_crossover: OOS Calmar=0.54, CAGR=5.08%, MaxDD=-14.54%
+  6. B_regime_filter: OOS Calmar=0.47, CAGR=4.87%, MaxDD=-12.54%
+  7. D_ema_atr_stop: OOS Calmar=0.45, CAGR=3.54%, MaxDD=-16.19%
+  8. H_atr_dip_addon: OOS Calmar=0.42, CAGR=2.76%, MaxDD=-9.45%
+  9. G_sizing_regime: OOS Calmar=0.42, CAGR=3.95%, MaxDD=-10.67%
 
 **WINNER: E_composite**
   Params: {'regime_len': 200, 'slope_window': 20, 'entry_ema': 20, 'entry_band_pct': 5.0, 'atr_len': 14, 'atr_mult': 5.0}
@@ -249,5 +277,5 @@ Why this strategy reduces drawdowns:
   the strategy sacrifices some upside during whipsaws but dramatically
   reduces maximum drawdown compared to buy-and-hold.
 
-Total runtime: 80.3 seconds
+Total runtime: 165.8 seconds
 ```

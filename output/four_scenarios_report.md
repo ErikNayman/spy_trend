@@ -1,6 +1,6 @@
 # Four Scenarios: Strategy Comparison Report
 
-**Date**: 2026-02-12 19:21
+**Date**: 2026-02-13 22:53
 **Instrument**: SPY (long-only + cash)
 **Costs**: 1.0 bps commission + 2.0 bps slippage per side
 **Walk-forward**: 8yr train, 2yr val, 2yr step
@@ -339,4 +339,4 @@ For each strategy, key parameters are varied +/- 1 step from consensus to check 
 - `four_scenarios_drawdown_holdout.png` — drawdowns, holdout
 
 ---
-*Generated in 95.3s*
+*Generated in 95.8s*
