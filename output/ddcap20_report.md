@@ -1,7 +1,7 @@
 # Drawdown-Capped Strategy Selection Report
 
 **Hard constraint**: MaxDD >= -20% (no worse than 20%)
-**Date**: 2026-02-13 22:47
+**Date**: 2026-02-13 23:01
 **Data**: SPY 1993-01-29 → 2026-02-11 (8316 days)
 **Costs**: 1.0 bps commission + 2.0 bps slippage/side
 **Walk-forward**: 8yr train, 2yr val, 2yr step, 10 folds

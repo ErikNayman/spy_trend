@@ -1,5 +1,5 @@
 {
-  "sweep_date": "2026-02-13T22:50:10.173109",
+  "sweep_date": "2026-02-13T23:09:39.627663",
   "strategies": [
     "F_hysteresis_regime",
     "G_sizing_regime",
@@ -165,6 +165,148 @@
           "avg_oos_sharpe": 0.4371427645425395,
           "stitched_maxdd": -0.19366249070591707,
           "n_passing": 404,
+          "n_evaluated": 576
+        }
+      }
+    },
+    {
+      "dd_cap": -0.15,
+      "winner": "G_sizing_regime",
+      "risk_scale": 0.9,
+      "stitched_maxdd": -0.14206073144512357,
+      "avg_oos_cagr": 0.05453616428964112,
+      "holdout_cagr": 0.08084109636339853,
+      "holdout_maxdd": -0.1251927496801689,
+      "exposure": 67.2549046246296,
+      "notes": "Pass rate 100%",
+      "all_strategies": {
+        "F_hysteresis_regime": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "upper_pct": 2.0,
+            "lower_pct": 1.0,
+            "slope_window": 20,
+            "risk_scale": 0.7
+          },
+          "avg_oos_cagr": 0.046854564622841544,
+          "avg_oos_sharpe": 0.5371596962683414,
+          "stitched_maxdd": -0.14018177966486112,
+          "n_passing": 57,
+          "n_evaluated": 324
+        },
+        "G_sizing_regime": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "slope_window": 20,
+            "vol_window": 20,
+            "target_vol": 0.15,
+            "risk_scale": 0.9
+          },
+          "avg_oos_cagr": 0.05453616428964112,
+          "avg_oos_sharpe": 0.5444228237899297,
+          "stitched_maxdd": -0.14206073144512357,
+          "n_passing": 160,
+          "n_evaluated": 324
+        },
+        "H_atr_dip_addon": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 150,
+            "dip_ema": 20,
+            "atr_len": 20,
+            "dip_atr_mult": 1.0,
+            "base_weight": 0.5,
+            "addon_weight": 0.5,
+            "risk_scale": 0.9
+          },
+          "avg_oos_cagr": 0.03176880262327199,
+          "avg_oos_sharpe": 0.32191094916744645,
+          "stitched_maxdd": -0.14706641927141675,
+          "n_passing": 335,
+          "n_evaluated": 576
+        },
+        "I_breakout_or_dip": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 150,
+            "breakout_len": 50,
+            "dip_ema": 20,
+            "dip_pct": 1.0,
+            "atr_len": 14,
+            "atr_mult": 5.0,
+            "risk_scale": 0.7
+          },
+          "avg_oos_cagr": 0.045163430986492246,
+          "avg_oos_sharpe": 0.42880425269886135,
+          "stitched_maxdd": -0.14500141004802256,
+          "n_passing": 182,
+          "n_evaluated": 576
+        }
+      }
+    },
+    {
+      "dd_cap": -0.1,
+      "winner": "G_sizing_regime",
+      "risk_scale": 0.6,
+      "stitched_maxdd": -0.09649533190905646,
+      "avg_oos_cagr": 0.03655228372275639,
+      "holdout_cagr": 0.05409113271427457,
+      "holdout_maxdd": -0.08505030354996539,
+      "exposure": 67.2549046246296,
+      "notes": "Pass rate 100%",
+      "all_strategies": {
+        "F_hysteresis_regime": {
+          "passed": false
+        },
+        "G_sizing_regime": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "slope_window": 20,
+            "vol_window": 20,
+            "target_vol": 0.15,
+            "risk_scale": 0.6
+          },
+          "avg_oos_cagr": 0.03655228372275639,
+          "avg_oos_sharpe": 0.5444228237899333,
+          "stitched_maxdd": -0.09649533190905646,
+          "n_passing": 30,
+          "n_evaluated": 324
+        },
+        "H_atr_dip_addon": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 150,
+            "dip_ema": 20,
+            "atr_len": 20,
+            "dip_atr_mult": 1.0,
+            "base_weight": 0.5,
+            "addon_weight": 0.5,
+            "risk_scale": 0.6
+          },
+          "avg_oos_cagr": 0.02133204769231436,
+          "avg_oos_sharpe": 0.3219109491674442,
+          "stitched_maxdd": -0.0995279998534041,
+          "n_passing": 80,
+          "n_evaluated": 576
+        },
+        "I_breakout_or_dip": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 150,
+            "breakout_len": 50,
+            "dip_ema": 20,
+            "dip_pct": 1.0,
+            "atr_len": 14,
+            "atr_mult": 3.0,
+            "risk_scale": 0.5
+          },
+          "avg_oos_cagr": 0.03059401146325712,
+          "avg_oos_sharpe": 0.42733681579031446,
+          "stitched_maxdd": -0.09748345911217568,
+          "n_passing": 6,
           "n_evaluated": 576
         }
       }
