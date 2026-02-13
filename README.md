@@ -41,6 +41,19 @@ Hard constraint optimization: **MaxDD must be no worse than -20%**. Evaluates ea
 - Stitched walk-forward OOS equity MaxDD >= -20%
 - Average OOS exposure >= 60%
 
+### 3. Multi-DDCap Sweep (`run_ddcap_sweep.py`)
+
+Run the DD-capped selection pipeline across multiple drawdown caps in one go:
+
+```bash
+python run_ddcap_sweep.py --dd-caps -10 -15 -20 -25
+python run_ddcap_sweep.py --dd-caps -10 -15 -20 -25 --risk-scales 0.5 0.6 0.7 0.8 0.9 1.0
+python run_ddcap_sweep.py --dd-caps -10 -20 --strategies F_hysteresis_regime G_sizing_regime
+```
+
+Outputs per cap: `ddcap{N}_report.md` + PNG charts.
+Summary: `ddcap_sweep_summary.md` + `ddcap_sweep_summary.json`.
+
 **Winner: F_hysteresis_regime**
 
 | Metric | F_hysteresis_regime | Buy & Hold |
@@ -63,9 +76,15 @@ spy_trend/
   metrics.py               # Performance metrics (CAGR, Sharpe, Calmar, etc.)
   optimizer.py             # Walk-forward optimization framework
   strategies.py            # All 9 strategy implementations + parameter grids
+  ddcap.py                 # Shared DD-capped selection logic (extracted module)
+  llm_explain.py           # Optional LLM explanation via Anthropic API
   main.py                  # Original A-E research pipeline
   run_four_scenarios.py    # F/G/H/I comparison
-  run_ddcap20.py           # Drawdown-capped selection
+  run_ddcap20.py           # Drawdown-capped selection (single cap)
+  run_ddcap_sweep.py       # Multi-DD-cap sweep
+  app.py                   # Streamlit interactive UI
+  tests/                   # Pytest tests
+    test_ddcap_constraints.py
   output/                  # Reports (.md) and charts (.png)
 ```
 
@@ -74,6 +93,7 @@ spy_trend/
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # for tests (pytest)
 
 # Launch the interactive web UI
 streamlit run app.py
@@ -85,8 +105,14 @@ python run_four_scenarios.py
 python run_ddcap20.py               # default -20% cap
 python run_ddcap20.py --dd-cap -15  # custom cap
 
+# Run multi-DD-cap sweep
+python run_ddcap_sweep.py --dd-caps -10 -15 -20 -25
+
 # Run the original A-E research
 python main.py
+
+# Run tests
+pytest tests/ -v
 ```
 
 ### Web UI (`app.py`)

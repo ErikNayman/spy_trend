@@ -1,0 +1,173 @@
+{
+  "sweep_date": "2026-02-13T22:50:10.173109",
+  "strategies": [
+    "F_hysteresis_regime",
+    "G_sizing_regime",
+    "H_atr_dip_addon",
+    "I_breakout_or_dip"
+  ],
+  "risk_scales": [
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+  ],
+  "caps": [
+    {
+      "dd_cap": -0.25,
+      "winner": "F_hysteresis_regime",
+      "risk_scale": 1.0,
+      "stitched_maxdd": -0.2473381961125755,
+      "avg_oos_cagr": 0.07213678088860603,
+      "holdout_cagr": 0.08489691780133746,
+      "holdout_maxdd": -0.1445529245057999,
+      "exposure": 70.599925792165,
+      "notes": "Pass rate 100%",
+      "all_strategies": {
+        "F_hysteresis_regime": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "upper_pct": 2.0,
+            "lower_pct": 3.0,
+            "slope_window": 20,
+            "risk_scale": 1.0
+          },
+          "avg_oos_cagr": 0.07213678088860603,
+          "avg_oos_sharpe": 0.5851776624287446,
+          "stitched_maxdd": -0.2473381961125755,
+          "n_passing": 255,
+          "n_evaluated": 324
+        },
+        "G_sizing_regime": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "slope_window": 20,
+            "vol_window": 20,
+            "target_vol": 0.2,
+            "risk_scale": 1.0
+          },
+          "avg_oos_cagr": 0.06637647424270363,
+          "avg_oos_sharpe": 0.5555414858350873,
+          "stitched_maxdd": -0.17893193373666477,
+          "n_passing": 313,
+          "n_evaluated": 324
+        },
+        "H_atr_dip_addon": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "dip_ema": 50,
+            "atr_len": 20,
+            "dip_atr_mult": 1.0,
+            "base_weight": 0.7,
+            "addon_weight": 0.3,
+            "risk_scale": 1.0
+          },
+          "avg_oos_cagr": 0.04567847800423861,
+          "avg_oos_sharpe": 0.40786212082890405,
+          "stitched_maxdd": -0.21710005862502088,
+          "n_passing": 576,
+          "n_evaluated": 576
+        },
+        "I_breakout_or_dip": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "breakout_len": 20,
+            "dip_ema": 50,
+            "dip_pct": 3.0,
+            "atr_len": 14,
+            "atr_mult": 5.0,
+            "risk_scale": 1.0
+          },
+          "avg_oos_cagr": 0.06867312275197576,
+          "avg_oos_sharpe": 0.5104261316345985,
+          "stitched_maxdd": -0.24416801864185853,
+          "n_passing": 562,
+          "n_evaluated": 576
+        }
+      }
+    },
+    {
+      "dd_cap": -0.2,
+      "winner": "F_hysteresis_regime",
+      "risk_scale": 1.0,
+      "stitched_maxdd": -0.19525760072422338,
+      "avg_oos_cagr": 0.06652878855095007,
+      "holdout_cagr": 0.10627075610794878,
+      "holdout_maxdd": -0.10917032550714666,
+      "exposure": 66.3788763869117,
+      "notes": "Pass rate 100%",
+      "all_strategies": {
+        "F_hysteresis_regime": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "upper_pct": 2.0,
+            "lower_pct": 1.0,
+            "slope_window": 20,
+            "risk_scale": 1.0
+          },
+          "avg_oos_cagr": 0.06652878855095007,
+          "avg_oos_sharpe": 0.537159696268345,
+          "stitched_maxdd": -0.19525760072422338,
+          "n_passing": 160,
+          "n_evaluated": 324
+        },
+        "G_sizing_regime": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "slope_window": 20,
+            "vol_window": 20,
+            "target_vol": 0.2,
+            "risk_scale": 1.0
+          },
+          "avg_oos_cagr": 0.06637647424270363,
+          "avg_oos_sharpe": 0.5555414858350873,
+          "stitched_maxdd": -0.17893193373666477,
+          "n_passing": 264,
+          "n_evaluated": 324
+        },
+        "H_atr_dip_addon": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 200,
+            "dip_ema": 50,
+            "atr_len": 20,
+            "dip_atr_mult": 1.0,
+            "base_weight": 0.7,
+            "addon_weight": 0.3,
+            "risk_scale": 0.9
+          },
+          "avg_oos_cagr": 0.04120698055296419,
+          "avg_oos_sharpe": 0.40786212082890394,
+          "stitched_maxdd": -0.19737579910266137,
+          "n_passing": 524,
+          "n_evaluated": 576
+        },
+        "I_breakout_or_dip": {
+          "passed": true,
+          "best_params": {
+            "regime_len": 150,
+            "breakout_len": 50,
+            "dip_ema": 20,
+            "dip_pct": 1.0,
+            "atr_len": 20,
+            "atr_mult": 3.0,
+            "risk_scale": 1.0
+          },
+          "avg_oos_cagr": 0.06317622574737489,
+          "avg_oos_sharpe": 0.4371427645425395,
+          "stitched_maxdd": -0.19366249070591707,
+          "n_passing": 404,
+          "n_evaluated": 576
+        }
+      }
+    }
+  ]
+}

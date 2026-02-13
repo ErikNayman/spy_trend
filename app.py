@@ -5,6 +5,7 @@ app.py – Streamlit UI for SPY Trend-Following Backtest Research.
 Launch:
     streamlit run app.py
 """
+import os
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -18,6 +19,15 @@ from data import download_spy, add_indicators
 from backtest import run_backtest, run_buy_and_hold, BacktestConfig
 from metrics import compute_metrics, drawdown_series
 from strategies import STRATEGIES
+from ddcap import (
+    build_folds,
+    expand_grid_with_risk_scale,
+    evaluate_params_across_folds,
+    passes_constraints,
+    score_for_selection,
+    run_strategy_on_slice,
+    generate_tldr,
+)
 
 # ── Page config ──────────────────────────────────────────────────
 st.set_page_config(
@@ -66,122 +76,6 @@ def load_data():
     df = download_spy()
     df = add_indicators(df)
     return df
-
-
-# ── Walk-forward folds ───────────────────────────────────────────
-def build_folds(df, train_years, val_years, step_years, test_start_date):
-    dates = df.index
-    start = dates[0]
-    test_start = pd.Timestamp(test_start_date)
-    folds = []
-    fold_start = start
-    while True:
-        train_end = fold_start + pd.DateOffset(years=train_years)
-        val_end = train_end + pd.DateOffset(years=val_years)
-        if val_end > test_start:
-            break
-        folds.append({
-            "train_start": fold_start,
-            "train_end": train_end,
-            "val_start": train_end,
-            "val_end": val_end,
-        })
-        fold_start += pd.DateOffset(years=step_years)
-    return folds
-
-
-# ── Grid expansion ───────────────────────────────────────────────
-def expand_grid_with_risk_scale(base_grid, risk_scales):
-    expanded = []
-    for p in base_grid:
-        for rs in risk_scales:
-            ep = dict(p)
-            ep["risk_scale"] = rs
-            expanded.append(ep)
-    return expanded
-
-
-# ── Core evaluation ──────────────────────────────────────────────
-def evaluate_params_across_folds(df, folds, strategy_func, params, config):
-    risk_scale = params.get("risk_scale", 1.0)
-    strat_params = {k: v for k, v in params.items() if k != "risk_scale"}
-
-    fold_metrics = []
-    fold_daily_returns = []
-
-    for fold in folds:
-        val_df = df.loc[fold["val_start"]:fold["val_end"]]
-        if len(val_df) < 100:
-            fold_metrics.append(None)
-            continue
-        try:
-            raw_sig = strategy_func(val_df, strat_params)
-            scaled_sig = (raw_sig * risk_scale).clip(0.0, 1.0)
-            result = run_backtest(val_df, scaled_sig, config)
-            m = compute_metrics(result.equity, result.trades)
-            fold_metrics.append(m)
-            fold_daily_returns.append(result.daily_returns)
-        except Exception:
-            fold_metrics.append(None)
-
-    valid_returns = [r for r in fold_daily_returns if r is not None and len(r) > 0]
-    if not valid_returns:
-        return None
-
-    stitched_ret = pd.concat(valid_returns)
-    stitched_ret = stitched_ret[~stitched_ret.index.duplicated(keep="first")]
-    stitched_ret = stitched_ret.sort_index()
-    stitched_equity = (1 + stitched_ret).cumprod() * config.initial_capital
-    stitched_cummax = stitched_equity.cummax()
-    stitched_dd = (stitched_equity - stitched_cummax) / stitched_cummax
-    stitched_maxdd = stitched_dd.min()
-
-    valid_metrics = [m for m in fold_metrics if m is not None]
-    if not valid_metrics:
-        return None
-
-    avg = {}
-    for k in valid_metrics[0].keys():
-        vals = [m[k] for m in valid_metrics
-                if not np.isnan(m.get(k, np.nan))
-                and not np.isinf(m.get(k, np.nan))]
-        avg[k] = np.mean(vals) if vals else 0.0
-
-    return {
-        "fold_metrics": fold_metrics,
-        "fold_daily_returns": fold_daily_returns,
-        "stitched_equity": stitched_equity,
-        "stitched_dd": stitched_dd,
-        "stitched_maxdd": stitched_maxdd,
-        "avg_metrics": avg,
-        "n_valid_folds": len(valid_metrics),
-    }
-
-
-def passes_constraints(eval_result, dd_cap, fold_pass_rate, min_exposure):
-    if eval_result is None:
-        return False
-    fold_metrics = eval_result["fold_metrics"]
-    valid = [m for m in fold_metrics if m is not None]
-    if len(valid) < 3:
-        return False
-    n_pass = sum(1 for m in valid if m["MaxDrawdown"] >= dd_cap)
-    if n_pass / len(valid) < fold_pass_rate:
-        return False
-    if eval_result["stitched_maxdd"] < dd_cap:
-        return False
-    if eval_result["avg_metrics"].get("ExposurePct", 0) < min_exposure:
-        return False
-    return True
-
-
-def score_for_selection(eval_result):
-    avg = eval_result["avg_metrics"]
-    return (
-        avg.get("CAGR", -999),
-        avg.get("Sharpe", -999),
-        avg.get("Calmar", -999),
-    )
 
 
 # ── Plotting helpers (Plotly) ────────────────────────────────────
@@ -283,13 +177,6 @@ def plot_stitched_wf(stitched_equity, stitched_dd, folds, winner_name, dd_cap):
         hovermode="x unified", showlegend=False,
     )
     return fig
-
-
-# ── Run strategy on a slice ──────────────────────────────────────
-def run_strategy_on_slice(sdf, func, strat_params, risk_scale, config):
-    raw_sig = func(sdf, strat_params)
-    scaled_sig = (raw_sig * risk_scale).clip(0.0, 1.0)
-    return run_backtest(sdf, scaled_sig, config)
 
 
 # ── Format metrics as DataFrame ──────────────────────────────────
@@ -491,6 +378,45 @@ if mode == "DD-Capped Optimization":
                    f"Stitched OOS MaxDD={winner_ev['stitched_maxdd']:.2%}")
 
         st.markdown(f"**Best params**: `{winner_params}`")
+
+        # ── Explain Like I'm Busy ──
+        # Compute holdout metrics for TL;DR (quick run on winner only)
+        test_df_tldr = df.loc[test_start:]
+        winner_holdout_tldr = run_strategy_on_slice(
+            test_df_tldr, winner_func, winner_strat_params,
+            winner_risk_scale, config)
+        holdout_m_tldr = compute_metrics(winner_holdout_tldr.equity,
+                                         winner_holdout_tldr.trades)
+
+        with st.expander("Explain Like I'm Busy (One-Click Recommendation)",
+                         expanded=True):
+            tldr_text = generate_tldr(winner_name, winner_params, winner_ev,
+                                      holdout_m_tldr, dd_cap, folds)
+            st.markdown(tldr_text)
+
+            # Optional LLM explanation
+            if os.environ.get("ANTHROPIC_API_KEY"):
+                if st.button("Get AI Explanation"):
+                    from llm_explain import explain_with_llm
+                    context = {
+                        "winner": winner_name,
+                        "params": winner_params,
+                        "avg_oos_cagr": winner_ev["avg_metrics"]["CAGR"],
+                        "avg_oos_sharpe": winner_ev["avg_metrics"]["Sharpe"],
+                        "avg_oos_maxdd": winner_ev["avg_metrics"]["MaxDrawdown"],
+                        "stitched_maxdd": winner_ev["stitched_maxdd"],
+                        "dd_cap": dd_cap,
+                        "holdout_cagr": holdout_m_tldr["CAGR"],
+                        "holdout_maxdd": holdout_m_tldr["MaxDrawdown"],
+                        "holdout_sharpe": holdout_m_tldr["Sharpe"],
+                        "n_folds": len(folds),
+                    }
+                    with st.spinner("Asking Claude..."):
+                        explanation = explain_with_llm(context)
+                    if explanation:
+                        st.markdown(explanation)
+                    else:
+                        st.info("Could not generate AI explanation.")
 
         # ── Ranking table ──
         st.markdown("### Overall Ranking")

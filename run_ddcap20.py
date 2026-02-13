@@ -42,6 +42,17 @@ from data import download_spy, add_indicators
 from backtest import run_backtest, run_buy_and_hold, BacktestConfig, BacktestResult
 from metrics import compute_metrics, drawdown_series, format_metrics
 from strategies import STRATEGIES
+from ddcap import (
+    build_folds,
+    expand_grid_with_risk_scale,
+    evaluate_params_across_folds,
+    passes_constraints,
+    score_for_selection,
+    run_strategy_on_slice,
+    describe_strategy,
+    metric_table_md,
+    generate_tldr,
+)
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -93,156 +104,6 @@ COLORS = {
 }
 
 
-# ── Walk-forward fold generation ──────────────────────────────────
-def build_folds(df, train_years, val_years, step_years, test_start_date):
-    """Build walk-forward fold boundaries (pre-test only)."""
-    dates = df.index
-    start = dates[0]
-    test_start = pd.Timestamp(test_start_date)
-
-    folds = []
-    fold_start = start
-    while True:
-        train_end = fold_start + pd.DateOffset(years=train_years)
-        val_end = train_end + pd.DateOffset(years=val_years)
-        if val_end > test_start:
-            break
-        folds.append({
-            "train_start": fold_start,
-            "train_end": train_end,
-            "val_start": train_end,
-            "val_end": val_end,
-        })
-        fold_start += pd.DateOffset(years=step_years)
-    return folds
-
-
-# ── Expand grids with risk_scale ──────────────────────────────────
-def expand_grid_with_risk_scale(base_grid, risk_scales):
-    """Add risk_scale to every param dict in the grid."""
-    expanded = []
-    for p in base_grid:
-        for rs in risk_scales:
-            ep = dict(p)
-            ep["risk_scale"] = rs
-            expanded.append(ep)
-    return expanded
-
-
-# ── Core: evaluate one param-set across all folds ─────────────────
-def evaluate_params_across_folds(df, folds, strategy_func, params, config):
-    """
-    Run a FIXED param-set on every validation fold.
-
-    Returns dict with:
-      fold_metrics: list of per-fold metric dicts (or None if fold failed)
-      fold_daily_returns: list of per-fold OOS daily return Series
-      stitched_equity: pd.Series (stitched from OOS segments)
-      stitched_maxdd: float
-      avg_metrics: dict of averaged OOS metrics
-    """
-    risk_scale = params.get("risk_scale", 1.0)
-    # Strip risk_scale from params passed to strategy function
-    strat_params = {k: v for k, v in params.items() if k != "risk_scale"}
-
-    fold_metrics = []
-    fold_daily_returns = []
-
-    for fold in folds:
-        val_df = df.loc[fold["val_start"]:fold["val_end"]]
-        if len(val_df) < 100:
-            fold_metrics.append(None)
-            continue
-
-        try:
-            raw_sig = strategy_func(val_df, strat_params)
-            # Apply risk_scale
-            scaled_sig = (raw_sig * risk_scale).clip(0.0, 1.0)
-            result = run_backtest(val_df, scaled_sig, config)
-            m = compute_metrics(result.equity, result.trades)
-            fold_metrics.append(m)
-            fold_daily_returns.append(result.daily_returns)
-        except Exception:
-            fold_metrics.append(None)
-
-    # Stitch OOS daily returns chronologically
-    valid_returns = [r for r in fold_daily_returns if r is not None and len(r) > 0]
-    if not valid_returns:
-        return None
-
-    stitched_ret = pd.concat(valid_returns)
-    # Remove duplicate indices (overlapping fold edges)
-    stitched_ret = stitched_ret[~stitched_ret.index.duplicated(keep="first")]
-    stitched_ret = stitched_ret.sort_index()
-    stitched_equity = (1 + stitched_ret).cumprod() * config.initial_capital
-    stitched_cummax = stitched_equity.cummax()
-    stitched_dd = (stitched_equity - stitched_cummax) / stitched_cummax
-    stitched_maxdd = stitched_dd.min()
-
-    # Average valid fold metrics
-    valid_metrics = [m for m in fold_metrics if m is not None]
-    if not valid_metrics:
-        return None
-
-    avg = {}
-    for k in valid_metrics[0].keys():
-        vals = [m[k] for m in valid_metrics
-                if not np.isnan(m.get(k, np.nan))
-                and not np.isinf(m.get(k, np.nan))]
-        avg[k] = np.mean(vals) if vals else 0.0
-
-    return {
-        "fold_metrics": fold_metrics,
-        "fold_daily_returns": fold_daily_returns,
-        "stitched_equity": stitched_equity,
-        "stitched_dd": stitched_dd,
-        "stitched_maxdd": stitched_maxdd,
-        "avg_metrics": avg,
-        "n_valid_folds": len(valid_metrics),
-    }
-
-
-# ── Apply DD-cap constraints ─────────────────────────────────────
-def passes_constraints(eval_result, dd_cap, fold_pass_rate, min_exposure):
-    """Check if a param-set evaluation passes all hard constraints."""
-    if eval_result is None:
-        return False
-
-    fold_metrics = eval_result["fold_metrics"]
-    valid = [m for m in fold_metrics if m is not None]
-    if len(valid) < 3:
-        return False
-
-    # Condition A: >= fold_pass_rate of folds have MaxDD >= dd_cap
-    n_pass = sum(1 for m in valid if m["MaxDrawdown"] >= dd_cap)
-    if n_pass / len(valid) < fold_pass_rate:
-        return False
-
-    # Condition B: stitched OOS equity MaxDD >= dd_cap
-    if eval_result["stitched_maxdd"] < dd_cap:
-        return False
-
-    # Condition C: avg OOS exposure >= min_exposure
-    if eval_result["avg_metrics"].get("ExposurePct", 0) < min_exposure:
-        return False
-
-    return True
-
-
-# ── Scoring for selection among passing param-sets ────────────────
-def score_for_selection(eval_result):
-    """
-    Return tuple for sorting (higher is better):
-    (avg_OOS_CAGR, avg_OOS_Sharpe, avg_OOS_Calmar)
-    """
-    avg = eval_result["avg_metrics"]
-    return (
-        avg.get("CAGR", -999),
-        avg.get("Sharpe", -999),
-        avg.get("Calmar", -999),
-    )
-
-
 # ── Plotting helpers ──────────────────────────────────────────────
 def plot_equity(equities, bh_eq, filename, title, test_start=None):
     fig, ax = plt.subplots(figsize=(14, 7))
@@ -288,54 +149,6 @@ def plot_drawdown(dd_dict, bh_dd, filename, title, test_start=None):
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, filename), dpi=150)
     plt.close()
-
-
-# ── Markdown table helpers ────────────────────────────────────────
-def metric_table_md(rows, title):
-    cols = ["Strategy", "CAGR", "Vol", "Sharpe", "Sortino", "MaxDD",
-            "Calmar", "WinRate", "PF", "Exp%", "AvgDays", "Tr/Yr", "TotRet"]
-    lines = [f"### {title}\n",
-             "| " + " | ".join(cols) + " |",
-             "| " + " | ".join(["---"] * len(cols)) + " |"]
-    for r in rows:
-        m = r["m"]
-        vals = [
-            r["name"],
-            f"{m['CAGR']:.2%}", f"{m['Volatility']:.2%}", f"{m['Sharpe']:.2f}",
-            f"{m['Sortino']:.2f}", f"{m['MaxDrawdown']:.2%}", f"{m['Calmar']:.2f}",
-            f"{m['WinRate']:.1%}", f"{m['ProfitFactor']:.2f}",
-            f"{m['ExposurePct']:.1f}", f"{m['AvgTradeDuration']:.1f}",
-            f"{m['TradesPerYear']:.1f}", f"{m['TotalReturn']:.2%}",
-        ]
-        lines.append("| " + " | ".join(vals) + " |")
-    return "\n".join(lines)
-
-
-def describe_strategy(name):
-    descs = {
-        "F_hysteresis_regime": (
-            "**F: Hysteresis Regime Filter** — Go LONG when Close crosses above "
-            "EMA(regime_len) * (1+upper_pct%), go CASH when below "
-            "EMA*(1-lower_pct%). Between bands: hold previous state (hysteresis). "
-            "Optional slope filter. Binary (0/1), risk_scale applied post-signal."
-        ),
-        "G_sizing_regime": (
-            "**G: Vol-Scaled Regime Sizing** — In regime (Close>EMA), allocate "
-            "weight = clamp(target_vol / realized_vol, 0, 1). More in calm uptrends, "
-            "less in choppy ones. Fractional [0,1], risk_scale applied post-signal."
-        ),
-        "H_atr_dip_addon": (
-            "**H: Regime + ATR Dip Add-On** — Base weight in regime, add-on when "
-            "Close dips below EMA(dip_ema) by dip_atr_mult*ATR. Total capped at 1. "
-            "Fractional [0,1], risk_scale applied post-signal."
-        ),
-        "I_breakout_or_dip": (
-            "**I: Breakout OR Dip** — In regime: enter on N-day high breakout OR "
-            "dip near EMA(dip_ema). Exit: ATR trailing stop or regime break. "
-            "Binary (0/1), risk_scale applied post-signal."
-        ),
-    }
-    return descs.get(name, name)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -591,11 +404,6 @@ def main():
 
     test_df = df.loc[TEST_START:]
 
-    def run_strategy_on_slice(sdf, func, strat_params, risk_scale, config):
-        raw_sig = func(sdf, strat_params)
-        scaled_sig = (raw_sig * risk_scale).clip(0.0, 1.0)
-        return run_backtest(sdf, scaled_sig, config)
-
     # Winner on holdout
     winner_holdout = run_strategy_on_slice(
         test_df, winner_func, winner_strat_params, winner_risk_scale,
@@ -658,7 +466,7 @@ def main():
     md(metric_table_md(full_rows, "Full Period (all history)"))
     md()
 
-    # ── 9. Why this meets DD <= 20% ──────────────────────────────
+    # ── 9. Why this meets DD constraint ───────────────────────────
     md("## Why This Strategy Meets the DD <= 20% Constraint")
     md()
     winner_full_m = None
@@ -723,6 +531,18 @@ def main():
     for part in mechanism_parts:
         md(f"- {part}")
     md()
+
+    # ── Insert TL;DR near top of report ───────────────────────────
+    tldr = generate_tldr(winner_name, winner_params, winner_ev,
+                         winner_hold_m, DD_CAP, folds)
+    # Insert after the report header (after the first empty line block)
+    insert_idx = 2  # after "# Drawdown-Capped..." and blank line
+    for i, line in enumerate(report):
+        if line.startswith("## Strategy Descriptions"):
+            insert_idx = i
+            break
+    report.insert(insert_idx, "")
+    report.insert(insert_idx, tldr)
 
     # ── 10. Charts ────────────────────────────────────────────────
     print("\n[6/7] Generating charts...")
